@@ -14,6 +14,7 @@ var app = express();
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 
+app.disable('x-powered-by');
 app.use(favicon());
 app.use(logger('dev'));
 app.use(bodyParser.json());
@@ -37,24 +38,9 @@ app.use(function(req, res, next) {
 //var rs = fs.createReadStream('public/resources/LottoSaturday.csv');
 //var ws = fs.createWriteStream('public/resources/ws.csv');
 //rs.pipe(ws);
+//rs.pipe(res);
 
 
-//var stream = fs.createReadStream("public/resources/LottoSaturday.csv");
-var csv = require("fast-csv");
-csv.fromPath("public/resources/LottoSaturday.csv")
-    .on("record", function(data){
-        //console.log(data);
-        //if(data[0] > 3000){
-            //console.log(data[0] + " " + data[1] + " " + data[2] + " " + data[3] + " " + data[4] + " " + data[5]+ " " + data[6]+ " " + data[7] + " " + data[8] + " " + data[9]);
-//            console.log(typeof data[0]);  String
-//            console.log(typeof data[1]);
-//            console.log(typeof data[2]);
-//            console.log(typeof data[3]);
-        //}
-    })
-    .on("end", function(){
-        console.log("######################### done #########################");
-    });
 
 /// error handlers
 
