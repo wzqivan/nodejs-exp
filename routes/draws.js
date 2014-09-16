@@ -19,51 +19,77 @@ var Schema = mongoose.Schema;
 var drawsSchema = new Schema({
     drawid: Number,
     drawdate: Number,
-    winning: [Number],
-    supplementary: [Number]
+    main: [Number],
+    supple: [Number]
 });
 var Draws = mongoose.model('Draws', drawsSchema);
 
 
 router.get('/build', function(req, res) {
 
-    csv.fromPath(csvPath)
-       .on("record", function(data,i) {
-//            console.log(data);
-//            if(data[0] > 3000){
-//                console.log(data[0] + " " + data[1] + " " + data[2] + " " + data[3] + " " + data[4] + " " + data[5]+ " " + data[6]+ " " + data[7] + " " + data[8] + " " + data[9]);
-//            }
+     var _drawDateFrom = 19970130,
+         _numOfRecords = 0;
 
-            if (i != 0) {
+     csv.fromPath(csvPath)
+        .on("record", function (data, i) {
 
-                if (data[8] == null) data[8] = 0;
+            if (i > 0) {
 
-                var draw = new Draws({
-                    drawid: Number(data[0]),
-                    drawdate: Number(data[1]),
-                    winning: [
-                        data[2], data[3], data[4], data[5], data[6]
-                    ],
-                    supplementary: [
-                        data[7], data[8]
-                    ]
-                });
+                for(var j = 0; j < 10; j++ ){
+                    data[j] = Number(data[j]);
+                };
 
-                draw.save(function (err, draw) {
-                    console.log('############ Saved ############');
-                    if (err) {
-                        console.dir(draw);
-                        console.error(err);
-                    }
-                    console.dir(draw);
-                });
+                // capture the data since 1997.2
+                if (data[1] > _drawDateFrom) {
+
+                    Draws.findOne( { 'drawid' : Number(data[0]) }, function(err, result){
+
+                        if (result == null) {
+
+                            var mainArr = data.slice(2, 8),
+                                suppleArr = data.slice(8, 10);
+
+                            mainArr.sort(function(a, b){return a-b});
+                            suppleArr.sort(function(a, b){return a-b});
+                            //console.log(mainArr);
+                            //console.log(suppleArr);
+
+                            var draw = new Draws({
+                                drawid: Number(data[0]),
+                                drawdate: Number(data[1]),
+                                main: mainArr,
+                                supple: suppleArr
+                            });
+
+                            draw.save(function (err, draw) {
+                                console.log('############ Saved ############');
+                                if (err) {
+                                    console.dir(draw);
+                                    console.error(err);
+                                }
+                                console.dir(draw);
+                                _numOfRecords++;
+                            });
+
+                        }
+
+                    });
+
+                }
+
             }
 
-       })
-       .on("end", function(){
+        })
+        .on("end", function(){
             console.log("######################### done #########################");
-            res.send('All draws has been imported into database successfully');
-       });
+
+             if (_numOfRecords > 0) {
+                 res.send('All draws has been read and totals ' + _numOfRecords + ' records was imported into database successfully');
+             } else {
+                 res.send('No draws was imported into database');
+             }
+
+        });
 
 });
 
@@ -71,11 +97,25 @@ router.get('/build', function(req, res) {
 
 /* GET Lotto Satuarday Draws listing. */
 /* root start from /draws */
-router.get('/id', function(req, res) {
+router.get('/', function(req, res) {
 
-    Draws.find( { 'winning': 25 , 'drawdate': { $gte: 20120101 } } , function(err, result){
+    var temArr = new Array(45);
+
+    Draws.find( { 'main': 25 , 'drawdate': { $gte: 20100101 } } , function(err, result){
         if (err) return handleError(err);
-        console.log(result.length);
+        //console.log(result.length);
+
+//        for (var i = 0; i < result.length; i++) {
+//            var item = result[i]['main'];
+//
+//            for (var j = 0; j < item.length; j++) {
+//                var tmpItem = item[j];
+//                if(temArr[tmpItem]==undefined) temArr[tmpItem] = 0;
+//                temArr[tmpItem]++;
+//            }
+//        }
+//        console.log(temArr);
+
         res.send(result);
     });
 
