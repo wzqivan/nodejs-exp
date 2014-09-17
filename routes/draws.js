@@ -99,9 +99,14 @@ router.get('/build', function(req, res) {
 /* root start from /draws */
 router.get('/', function(req, res) {
 
+    var _drawDateFrom = 20100101,
+        _drawDateTo = (new Date()).toISOString().slice(0, 10).replace(/-/g, "");
+        // _drawDateTo will be the string so far
+        // console.log(_drawDateTo);
+
     var temArr = new Array(45);
 
-    Draws.find( { 'main': 25 , 'drawdate': { $gte: 20100101 } } , function(err, result){
+    Draws.find( { 'main': 25 , 'drawdate': { $gte: _drawDateFrom } } , 'drawid drawdate main supple', { sort: { drawdate: -1 } } , function(err, result){
         if (err) return handleError(err);
         //console.log(result.length);
 
