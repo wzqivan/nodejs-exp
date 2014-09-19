@@ -42,7 +42,7 @@ router.get('/build', function(req, res) {
                 // capture the data since 1997.2
                 if (data[1] > _drawDateFrom) {
 
-                    Draws.findOne( { 'drawid' : Number(data[0]) }, function(err, result){
+                    Draws.findOne( { 'drawid' : data[0] }, function(err, result){
 
                         if (result == null) {
 
