@@ -8,9 +8,9 @@ router.get('/', function(req, res) {
 
 
 /* GET Users page. */
-router.get('/users', function(req, res) {
-  res.render('users', { title: 'Users' });
-});
+//router.get('/users', function(req, res) {
+//  res.render('users', { title: 'Users' });
+//});
 
 
 /* GET Draws page. */

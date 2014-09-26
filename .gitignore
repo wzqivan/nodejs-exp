@@ -22,5 +22,5 @@ Thumbs.db
 
 # lib generated files #
 ######################
-node_modules/
+node_modules/*
 .grunt/
