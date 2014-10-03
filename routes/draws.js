@@ -29,6 +29,10 @@ mongoose.connect('mongodb://localhost/draws', function(err){
         numberArr.push(i);
     }
 
+//    var testArr = Array.apply(null, {length: 45}).map(Number.call, Number);
+//    console.log(testArr);
+//    console.log(testArr.length);
+
     async.each(numberArr, function(item, callback){
 
         Numbers.findOne({num: item}, function(err, result){
@@ -187,7 +191,7 @@ router.get('/build', function(req, res) {
 /* root start from /draws */
 router.get('/', function(req, res) {
     //console.dir(res);
-    var _drawDateFrom = 20100101,
+    var _drawDateFrom = 20010101,
         _drawDateTo = Number((new Date()).toISOString().slice(0, 10).replace(/-/g, ""));
         // _drawDateTo will be the string so far
         // console.log(_drawDateTo);
@@ -195,32 +199,44 @@ router.get('/', function(req, res) {
 
 
     var countUpdate = 0;
-    var numberArr = [];
-    for(var i=1; i<=45; i++){
-        numberArr.push(i);
-    }
 
-    async.each(numberArr, function(item, callback){
+    Numbers.find({}, function(err, result){
+        console.log(result.length);
 
-        var selector = { main: item, drawdate: { $gte: _drawDateFrom, $lte: _drawDateTo }},
-            query = Draws.find(selector);
+        async.each(result, function(item, callback){
 
-        query.sort({drawdate: 1})
-             .select(queryConf.field)
-             .exec(function(err, result){
-                if(err) throw err;
-                //console.log(result.length);
+            var selector = { main: item.num, drawdate: { $gte: _drawDateFrom, $lte: _drawDateTo }},
+                query = Draws.find(selector);
 
-                Numbers.update({num: item}, { $set: { 'main.freq': result }}, function(err){
+            query.sort({drawdate: 1})
+                .select(queryConf.field)
+                .exec(function(err, result){
                     if(err) throw err;
-                    countUpdate++;
-                    callback();
-                });
-        });
+                    //console.log(result);
+                    //console.log("##############################################################");
 
-    }, function(err){
-        if(err) console.log(err);
-        console.log('>>>>>>>>>> countUpdate:'+countUpdate);
+                    var combPairsArr = Array.apply(null, new Array(46)).map(Number.prototype.valueOf,0);
+
+                    for(var i=0; i<result.length; i++){
+                        for(var j=0; j<result[i]["main"].length; j++){
+                            var idx = result[i]["main"][j];
+                            //console.log(idx);
+                            combPairsArr[idx] += 1;
+                        }
+                    }
+
+                    console.log(combPairsArr);
+                    Numbers.update({num: item.num}, { $set: { 'main.freq': result, 'main.combination.paris': combPairsArr  }}, function(err){
+                        if(err) throw err;
+                        countUpdate++;
+                        callback();
+                    });
+
+                });
+
+        }, function(err){
+            if(err) console.log(err);
+            console.log('>>>>>>>>>> countUpdate:'+countUpdate);
 
 //        Numbers.find({num: 25}, function(err, result){
 //            if(err) throw err;
@@ -228,51 +244,45 @@ router.get('/', function(req, res) {
 //            console.log('>>>>>>>>>> Numbers freq updated');
 //        });
 
-        Draws.find({ drawdate: { $gte: 20140101 }}, function(err, result){
-            if(err) throw err;
-            res.send(result);
-            console.log('>>>>>>>>>> Draws requested');
-            console.log(result[0]['main']);
+            Draws.find({ drawdate: { $gte: 20140101 }}, queryConf.field, { sort: { 'drawdate': -1} }, function(err, result){
+                if(err) throw err;
+                res.send(result);
+                console.log('>>>>>>>>>> Draws requested');
+                console.log(result[0]['main']);
 
-            var numArr = Array(45);
-            for(var i=0; i<=45; i++){
-                numArr[i]=0;
-            }
-            numArr.map(function(item){
-                //console.log(item==='');
-            });
-
-            //console.log(numArr);
-
-
-            async.eachSeries(result, function(item, esCallback){
-                  //console.log(item);
-
-
-                async.each(item.main,  function(main, callback){
-                    if(numArr[main]===0) numArr[main] = item.drawid;
-                    callback();
-                }, function(err){
-
-                    esCallback();
-                    console.log(numArr);
-
+                var numArr = Array(45);
+                for(var i=0; i<=45; i++){
+                    numArr[i]=0;
+                }
+                numArr.map(function(item){
+                    //console.log(item==='');
                 });
 
+                //console.log(numArr);
 
-            },function(err){
-                  console.log('done');
+                async.eachSeries(result, function(item, esCallback){
+                    //console.log(item);
+
+//                    Draws.find({ drawdate: { $lte: item.drawdate }}, '').distinct('main', function(err, result){
+//                        console.log(result.length);
+//                    });
+
+//                Draws.aggregate( { $match: {drawdate: { $lte: item.drawdate }} } )
+//                     .limit(20)
+//                     .group( { _id: '$drawid'} )
+//                     .exec(function(err, result){
+//                         console.log(result);
+//                    });
+
+
+                },function(err){
+                    console.log('done');
+                });
+
             });
+        });/* END async */
 
-//            async.each(result[0]['main'],  function(item, callback){
-//                 if(numArr[item]===0) numArr[item] = result[0]['drawid'];
-//                 callback();
-//            }, function(err){
-//                 console.log(numArr);
-//
-//            });
-        });
-    });
+    });/* End Numbers */
 
 });
 
