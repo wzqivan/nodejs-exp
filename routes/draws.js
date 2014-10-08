@@ -16,7 +16,7 @@ var Statics = mongoose.model('Static');
 
 var queryConf = {
         field: 'drawid drawdate main supple',
-        static: '-_id main supple'
+        static: '-_id main supple last20Stat'
     };
 
 mongoose.connect('mongodb://localhost/draws', function(err){
@@ -24,16 +24,9 @@ mongoose.connect('mongodb://localhost/draws', function(err){
     console.log('MongoDB Connected (Mongoose) ##########################');
 
     //create the initial data for draw number
-    var numberArr = [];
-    for(var i=1; i<=45; i++){
-        numberArr.push(i);
-    }
+    var fullNumArr = Array.apply(null, {length: 46}).map(Number.call, Number).slice(1);
 
-//    var testArr = Array.apply(null, {length: 45}).map(Number.call, Number);
-//    console.log(testArr);
-//    console.log(testArr.length);
-
-    async.each(numberArr, function(item, callback){
+    async.each(fullNumArr, function(item, callback){
 
         Numbers.findOne({num: item}, function(err, result){
             //console.log(result);
@@ -54,38 +47,42 @@ function staticsBuild (arr){
     var result = {
         sum: 0,
         avg: 0,
-        pOdd: [],
-        pEven: [],
-        gLow: [],
-        gLowMed: [],
-        gMed: [],
-        gHighMed: [],
-        gHigh: []
+        group: {
+           low: [],
+           lowMed: [],
+           med: [],
+           highMed: [],
+           high: []
+        },
+        parity: {
+           even: [],
+           odd: []
+        }
     }
 
     arr.map(function(item){
         result.sum += item;
 
         if ((item % 2) !== 0) {
-            result.pOdd.push(item);
+            result.parity.odd.push(item);
         } else {
-            result.pEven.push(item);
+            result.parity.even.push(item);
         }
 
         if (item < 10) {
-            result.gLow.push(item);
+            result.group.low.push(item);
         }
         if (item >= 10 && item < 20) {
-            result.gLowMed.push(item);
+            result.group.lowMed.push(item);
         }
         if (item >= 20 && item < 30) {
-            result.gMed.push(item);
+            result.group.med.push(item);
         }
         if (item >= 30 && item < 40) {
-            result.gHighMed.push(item);
+            result.group.highMed.push(item);
         }
         if (item >= 40) {
-            result.gHigh.push(item);
+            result.group.high.push(item);
         }
     });
 
@@ -175,10 +172,126 @@ router.get('/build', function(req, res) {
                 console.log("######################### " + _numOfRecords + " records #########################");
 
                 if (_numOfRecords > 0) {
-                     res.send('All draws has been read and totals ' + _numOfRecords + ' records was imported into database successfully');
+                     console.log('All draws has been read and totals ' + _numOfRecords + ' records was imported into database successfully');
                 } else {
-                     res.send('No draws was imported into database');
+                    console.log('No draws was imported into database');
                 }
+
+                /* query last 20 result from current draw */
+                var queryAllDraws = Draws.find({});
+                queryAllDraws.sort({drawdate: -1})
+                    .select(queryConf.field)
+                    .exec(function(err, allStaticResults){
+                        if(err) throw err;
+
+                        async.each(allStaticResults, function(drawRecord, callbackAllStatic){
+                            console.log("####### drawRecord " + drawRecord.drawid + " beginning to process #######");
+
+                            var mainArr = drawRecord.main;
+                            var last20Stat = {
+                                count: 0,
+                                total: 0,
+                                rate: 0,
+                                next: [],
+                                wins: [],
+                                nons: [],
+                                winsArr: [],
+                                nonsArr: [],
+                                selection: []
+                            };
+
+                            var numOfLast20 = 20,
+                                selectorLast20 = {drawdate: { $lt : drawRecord.drawdate }};
+                                queryLast20 = Draws.find(selectorLast20);
+
+                            queryLast20.sort({drawdate: -1})
+                                .select(queryConf.field)
+                                .limit(numOfLast20)
+                                .exec(function(err, last20Results){
+                                    if(err) throw err;
+
+                                    async.each(last20Results, function(record, callback){
+
+                                        var isContainWins = false;
+                                        async.each(record.main, function(item, callbackMain){
+
+                                            if(mainArr.indexOf(item) >= 0) isContainWins = true;
+                                            callbackMain();
+
+                                        }, function(err){
+                                            if(err) throw err;
+
+                                            (isContainWins) ?  last20Stat.nonsArr.push(record) : last20Stat.winsArr.push(record);
+                                            callback();
+                                        });
+
+                                    }, function(err){
+                                        if(err) throw err;
+                                        console.log('last20Result classify done');
+
+                                        var tmpWinsArr = [];
+                                        var fullNumArr = Array.apply(null, {length: 46}).map(Number.call, Number).slice(1);
+
+                                        for(var i=0; i<last20Stat.winsArr.length; i++){
+                                            for(var j=0; j<last20Stat.winsArr[i]["main"].length; j++){
+                                                tmpWinsArr.push(last20Stat.winsArr[i]["main"][j]);
+                                            }
+                                        }
+
+                                        last20Stat.nons = tmpWinsArr.filter(function (item, pos) {return tmpWinsArr.indexOf(item) == pos}).sort(function(a, b){return a-b});
+                                        last20Stat.wins = fullNumArr.filter(function (item){ return (last20Stat.nons.indexOf(item) === -1)});
+
+                                        //remove the non-wins number from nonsArr
+                                        for(var i=0; i<last20Stat.nonsArr.length; i++){
+                                            var tmpNonsArr = [];
+                                            for(var j=0; j<last20Stat.nonsArr[i]["main"].length; j++){
+                                                if(last20Stat.wins.indexOf(last20Stat.nonsArr[i]["main"][j]) >= 0) tmpNonsArr.push(last20Stat.nonsArr[i]["main"][j]);
+                                            }
+                                            last20Stat.selection.push(tmpNonsArr);
+                                        }
+
+
+                                        var queryNext = {drawdate: { $gt : drawRecord.drawdate }};
+                                        queryNext = Draws.findOne(queryNext);
+                                        queryNext.sort({drawdate: 1})
+                                            .select(queryConf.field)
+                                            .exec(function(err, nextResult) {
+
+                                                if(nextResult!=null) {
+                                                    last20Stat.next = nextResult.main.concat(nextResult.supple).sort(function (a, b) {return a - b});
+                                                    for(var i=0; i<last20Stat.next.length; i++){
+                                                        if (last20Stat.wins.indexOf(last20Stat.next[i]) >= 0) last20Stat.count++;
+                                                    }
+                                                    last20Stat.total = last20Stat.wins.length;
+                                                    last20Stat.rate = Math.round((last20Stat.count/last20Stat.total) * 10000) / 10000;
+
+                                                    Statics.update({drawid: drawRecord.drawid}, { $set: { 'last20Stat': last20Stat}}, function(err){
+                                                        if(err) throw err;
+                                                        callbackAllStatic();
+                                                    });
+
+                                                }else{
+                                                    last20Stat.total = last20Stat.wins.length;
+                                                    last20Stat.winsArr = last20Stat.nonsArr = [];
+                                                    Statics.update({drawid: drawRecord.drawid}, { $set: { 'last20Stat': last20Stat}}, function(err){
+                                                        if(err) throw err;
+                                                        callbackAllStatic();
+                                                    });
+                                                }
+
+                                            }); /* END queryNext */
+
+                                    });/* END queryLast20 */
+
+                                });/* END async */
+
+                        }, function(err){
+                            if(err) throw err;
+                            console.log('######## allStaticResults have been done #########');
+                        });
+
+                    });
+
             });
 
         }) /* END parse */
@@ -299,9 +412,14 @@ router.get('/id/:drawid', function(req, res) {
 
             if(result.length){
                 queryStat.select(queryConf.static)
-                         .exec(function(err, statResult){
-                    result.push(statResult);
-                    res.send(result);
+                    .exec(function(err, statResult){
+                        if(err) throw err;
+
+                        // remove the winsArr and nonsArr for result display
+                        statResult.last20Stat.winsArr = statResult.last20Stat.nonsArr = [];
+
+                        result.push(statResult);
+                        res.send(result);
                 });
             }else{
                 res.send('The draw ' + req.params.drawid + ' can not be found');
