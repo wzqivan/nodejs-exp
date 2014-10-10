@@ -9,14 +9,16 @@ require('../model/draw.js')();
 require('../model/number.js')();
 require('../model/static.js')();
 
+var tools = require('../inc/tools.js');
 var mongoose = require('mongoose');
 var Draws = mongoose.model('Draw');
 var Numbers = mongoose.model('Number');
 var Statics = mongoose.model('Static');
 
 var queryConf = {
-        field: 'drawid drawdate main supple',
-        static: '-_id main supple last20Stat'
+        draw: "drawid drawdate main supple",
+        static: "-_id main supple last20Stat",
+        number: "num main supple"
     };
 
 mongoose.connect('mongodb://localhost/draws', function(err){
@@ -37,59 +39,9 @@ mongoose.connect('mongodb://localhost/draws', function(err){
 
     }, function(err){
         if(err) throw err;
-        console.log(">>>>>>>>>> Numbers created");
+        console.log(">>>>>>>>>> Numbers initialed >>>>>>>");
     });
 });
-
-
-function staticsBuild (arr){
-
-    var result = {
-        sum: 0,
-        avg: 0,
-        group: {
-           low: [],
-           lowMed: [],
-           med: [],
-           highMed: [],
-           high: []
-        },
-        parity: {
-           even: [],
-           odd: []
-        }
-    }
-
-    arr.map(function(item){
-        result.sum += item;
-
-        if ((item % 2) !== 0) {
-            result.parity.odd.push(item);
-        } else {
-            result.parity.even.push(item);
-        }
-
-        if (item < 10) {
-            result.group.low.push(item);
-        }
-        if (item >= 10 && item < 20) {
-            result.group.lowMed.push(item);
-        }
-        if (item >= 20 && item < 30) {
-            result.group.med.push(item);
-        }
-        if (item >= 30 && item < 40) {
-            result.group.highMed.push(item);
-        }
-        if (item >= 40) {
-            result.group.high.push(item);
-        }
-    });
-
-    result.avg = Math.round(result.sum/arr.length);
-
-    return result;
-};
 
 
 
@@ -105,15 +57,12 @@ router.get('/build', function(req, res) {
             data.shift();
 
             async.each(data, function(item, asyncCallback){
-                //console.log(item);
 
-                for(var i = 0; i < 10; i++ ){
-                    item[i] = Number(item[i]);
-                };
+                var row = item.slice(0, 10).map(function(cell){ return Number(cell); });
 
-                if (item[1] >= _drawDateFrom) {
+                if (row[1] >= _drawDateFrom) {
 
-                    Draws.findOne({drawid: item[0]}, function(err, result){
+                    Draws.findOne({drawid: row[0]}, function(err, result){
 
                         if (result == null) {
 
@@ -121,8 +70,8 @@ router.get('/build', function(req, res) {
                                 suppleArr = item.slice(8, 10).sort(function(a, b){return a-b});
 
                             Draws.create({
-                                drawid: item[0],
-                                drawdate: item[1],
+                                drawid: row[0],
+                                drawdate: row[1],
                                 main: mainArr,
                                 supple: suppleArr
                             }, function(err, draw){
@@ -130,15 +79,15 @@ router.get('/build', function(req, res) {
                                 console.log('############ Draw: ' + draw.drawid + ' Saved ############');
 
                                 // create statics collections for all the draws
-                                Statics.findOne({drawid: item[0]}, function(err, result){
+                                Statics.findOne({drawid: row[0]}, function (err, result){
 
                                     if (result == null) {
 
                                         Statics.create({
-                                            drawid: item[0],
-                                            drawdate: item[1],
-                                            main: staticsBuild(mainArr),
-                                            supple: staticsBuild(suppleArr)
+                                            drawid: row[0],
+                                            drawdate: row[1],
+                                            main: tools.staticsBuild(mainArr),
+                                            supple: tools.staticsBuild(suppleArr)
                                         }, function(err, static){
                                             if (err) console.error(err);
                                             console.log('############ Static: ' + static.drawid + ' Saved ############');
@@ -180,7 +129,7 @@ router.get('/build', function(req, res) {
                 /* query last 20 result from current draw */
                 var queryAllDraws = Draws.find({});
                 queryAllDraws.sort({drawdate: -1})
-                    .select(queryConf.field)
+                    .select(queryConf.draw)
                     .exec(function(err, allStaticResults){
                         if(err) throw err;
 
@@ -205,7 +154,7 @@ router.get('/build', function(req, res) {
                                 queryLast20 = Draws.find(selectorLast20);
 
                             queryLast20.sort({drawdate: -1})
-                                .select(queryConf.field)
+                                .select(queryConf.draw)
                                 .limit(numOfLast20)
                                 .exec(function(err, last20Results){
                                     if(err) throw err;
@@ -227,7 +176,7 @@ router.get('/build', function(req, res) {
 
                                     }, function(err){
                                         if(err) throw err;
-                                        console.log('last20Result classify done');
+                                        console.log("Draw " + drawRecord.drawid + " last20Result classify done >>>>>>");
 
                                         var tmpWinsArr = [];
                                         var fullNumArr = Array.apply(null, {length: 46}).map(Number.call, Number).slice(1);
@@ -254,7 +203,7 @@ router.get('/build', function(req, res) {
                                         var queryNext = {drawdate: { $gt : drawRecord.drawdate }};
                                         queryNext = Draws.findOne(queryNext);
                                         queryNext.sort({drawdate: 1})
-                                            .select(queryConf.field)
+                                            .select(queryConf.draw)
                                             .exec(function(err, nextResult) {
 
                                                 if(nextResult!=null) {
@@ -272,7 +221,7 @@ router.get('/build', function(req, res) {
 
                                                 }else{
                                                     last20Stat.total = last20Stat.wins.length;
-                                                    last20Stat.winsArr = last20Stat.nonsArr = [];
+                                                    //last20Stat.winsArr = last20Stat.nonsArr = [];
                                                     Statics.update({drawid: drawRecord.drawid}, { $set: { 'last20Stat': last20Stat}}, function(err){
                                                         if(err) throw err;
                                                         callbackAllStatic();
@@ -322,23 +271,19 @@ router.get('/', function(req, res) {
                 query = Draws.find(selector);
 
             query.sort({drawdate: 1})
-                .select(queryConf.field)
+                .select(queryConf.draw)
                 .exec(function(err, result){
                     if(err) throw err;
-                    //console.log(result);
-                    //console.log("##############################################################");
 
                     var combPairsArr = Array.apply(null, new Array(46)).map(Number.prototype.valueOf,0);
 
                     for(var i=0; i<result.length; i++){
                         for(var j=0; j<result[i]["main"].length; j++){
                             var idx = result[i]["main"][j];
-                            //console.log(idx);
                             combPairsArr[idx] += 1;
                         }
                     }
 
-                    console.log(combPairsArr);
                     Numbers.update({num: item.num}, { $set: { 'main.freq': result, 'main.combination.paris': combPairsArr  }}, function(err){
                         if(err) throw err;
                         countUpdate++;
@@ -351,17 +296,11 @@ router.get('/', function(req, res) {
             if(err) console.log(err);
             console.log('>>>>>>>>>> countUpdate:'+countUpdate);
 
-//        Numbers.find({num: 25}, function(err, result){
-//            if(err) throw err;
-//            res.send(result);
-//            console.log('>>>>>>>>>> Numbers freq updated');
-//        });
-
-            Draws.find({ drawdate: { $gte: 20140101 }}, queryConf.field, { sort: { 'drawdate': -1} }, function(err, result){
+            Draws.find({ drawdate: { $gte: 20140101 }}, queryConf.draw, { sort: { 'drawdate': -1} }, function(err, result){
                 if(err) throw err;
                 res.send(result);
                 console.log('>>>>>>>>>> Draws requested');
-                console.log(result[0]['main']);
+                //console.log(result[0]['main']);
 
                 var numArr = Array(45);
                 for(var i=0; i<=45; i++){
@@ -370,8 +309,6 @@ router.get('/', function(req, res) {
                 numArr.map(function(item){
                     //console.log(item==='');
                 });
-
-                //console.log(numArr);
 
                 async.eachSeries(result, function(item, esCallback){
                     //console.log(item);
@@ -406,7 +343,7 @@ router.get('/id/:drawid', function(req, res) {
         query = Draws.find(selector),
         queryStat = Statics.findOne(selector);
 
-    query.select(queryConf.field)
+    query.select(queryConf.draw)
          .exec(function(err, result){
             if(err) throw err;
 
@@ -432,10 +369,10 @@ router.get('/id/:drawid', function(req, res) {
 router.get('/id/from/:drawid', function(req, res) {
 
     var query = Draws.find({ drawid: { $gte: req.params.drawid }});
-    query.select(queryConf.field);
-    query.exec(function(err, result){
-        if(err) throw err;
-        res.send(result);
+    query.select(queryConf.draw)
+         .exec(function(err, result){
+            if(err) throw err;
+            res.send(result);
     });
 });
 
@@ -447,8 +384,8 @@ router.get('/date/:drawdate', function(req, res) {
         query = Draws.find(selector),
         queryStat = Statics.findOne(selector);
 
-    query.select(queryConf.field)
-        .exec(function(err, result){
+    query.select(queryConf.draw)
+         .exec(function(err, result){
             if(err) throw err;
 
             if(result.length){
@@ -460,7 +397,7 @@ router.get('/date/:drawdate', function(req, res) {
             }else{
                 res.send('The draw ' + req.params.drawdate + ' can not be found');
             }
-        });
+         });
 
 });
 
@@ -468,10 +405,10 @@ router.get('/date/:drawdate', function(req, res) {
 router.get('/date/from/:drawdate', function(req, res) {
 
     var query = Draws.find({ drawdate: { $gte: req.params.drawdate }});
-    query.select(queryConf.field);
-    query.exec(function(err, result){
-        if(err) throw err;
-        res.send(result);
+    query.select(queryConf.draw)
+         .exec(function(err, result){
+            if(err) throw err;
+            res.send(result);
     });
 
 });
@@ -480,13 +417,38 @@ router.get('/date/from/:drawdate', function(req, res) {
 router.get('/date/from/:drawdatefrom/to/:drawdateto', function(req, res) {
 
     var query = Draws.find({ drawdate: { $gte: req.params.drawdatefrom, $lt: req.params.drawdateto }});
-    query.select(queryConf.field);
-    query.exec(function(err, result){
-        if(err) throw err;
-        res.send(result);
+    query.select(queryConf.draw)
+         .exec(function(err, result){
+            if(err) throw err;
+            res.send(result);
     });
 
 });
+
+/* /draws/number/  */
+router.get('/number/', function(req, res) {
+
+    var query = Numbers.find({});
+    query.select(queryConf.number)
+         .exec(function(err, result){
+            if(err) throw err;
+            res.send(result);
+    });
+
+});
+
+/* /draws/number/:num  */
+router.get('/number/:num', function(req, res) {
+
+    var query = Numbers.find({num: req.params.num});
+    query.select(queryConf.number)
+         .exec(function(err, result){
+            if(err) throw err;
+            res.send(result);
+    });
+
+});
+
 
 
 module.exports = router;
