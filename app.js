@@ -37,7 +37,7 @@ app.use(function(req, res, next) {
 
 
 //var fs = require('fs');
-//var rs = fs.createReadStream('public/resources/LottoSaturday.csv');
+//var rs = fs.createReadStream('public/resources/TattsLotto.csv');
 //var ws = fs.createWriteStream('public/resources/ws.csv');
 //rs.pipe(ws);
 //rs.pipe(res);

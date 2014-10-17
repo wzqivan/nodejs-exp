@@ -14,7 +14,7 @@ router.get('/', function(req, res) {
     //});
 
     //res.send('respond with a resource');
-    fs.createReadStream('public/resources/LottoSaturday.csv').pipe(
+    fs.createReadStream('public/resources/TattsLotto.csv').pipe(
         parse({delimiter: ','}, function(err, data){
             if(err) console.log(err);
 
