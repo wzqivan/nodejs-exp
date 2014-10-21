@@ -34,7 +34,7 @@ module.exports = {
         }
 
         arr.map(function(item){
-            result.sum += item;
+            result.sum += Number(item);
 
             if ((item % 2) !== 0) {
                 result.parity.odd.push(item);
@@ -197,9 +197,52 @@ module.exports = {
         return rsArr;
     },
 
+    getLastNonsArr: function(arrNons){
+
+        var _tmpNonsArr = [];
+
+        for (var i = 0; i < arrNons.length; i++) {
+            for (var j = 0; j < arrNons[i]["main"].length; j++) {
+                _tmpNonsArr.push(arrNons[i]["main"][j]);
+            }
+        }
+
+        return _tmpNonsArr.filter(function (item, pos) {return _tmpNonsArr.indexOf(item) == pos}).sort(function(a, b){return a-b});
+    },
+
+    getLastWinsArr: function(arrNons){
+        var _fullNumArr = Array.apply(null, {length: 46}).map(Number.call, Number).slice(1);
+        return _fullNumArr.filter(function (item){ return (arrNons.indexOf(item) === -1)});
+    },
+
+    getLastSelectionsArr: function(winsArr, wins){
+
+        var _tmpSelection = [];
+
+        for (var i = 0; i < winsArr.length; i++) {
+            var _tmpWinsArr = [];
+            for (var j = 0; j < winsArr[i]["main"].length; j++) {
+                if (wins.indexOf(winsArr[i]["main"][j]) >= 0) _tmpWinsArr.push(winsArr[i]["main"][j]);
+            }
+            _tmpSelection.push(_tmpWinsArr);
+        }
+        return _tmpSelection;
+    },
+
+    getLastWinsStatic: function(arrNext, lastObj){
+
+        for (var i = 0; i < arrNext.length; i++) {
+            if (lastObj.wins.indexOf(arrNext[i]) >= 0) lastObj.count++;
+        }
+
+        lastObj.total = lastObj.wins.length;
+        lastObj.rate = Math.round((lastObj.count/lastObj.total) * 10000) / 10000;
+    },
+
     getLastResults: function(arr, nlr){
 
-        var numOfLastRecords = nlr,
+        var _this = this,
+            numOfLastRecords = nlr,
             querySelect = this.queryConf;
 
         async.each(arr, function(drawRecord, callbackAllStatic){
@@ -207,15 +250,25 @@ module.exports = {
 
             var mainArr = drawRecord.main;
             var last20Stat = {
-                count: 0,
-                total: 0,
-                rate: 0,
                 next: [],
-                wins: [],
-                nons: [],
+                winsSelected: {
+                    count: 0,
+                    total: 0,
+                    rate: 0,
+                    wins: [],
+                    nons: [],
+                    selection: []
+                },
+                nonsSelected: {
+                    count: 0,
+                    total: 0,
+                    rate: 0,
+                    wins: [],
+                    nons: [],
+                    selection: []
+                },
                 winsArr: [],
-                nonsArr: [],
-                selection: []
+                nonsArr: []
             };
 
             var selectorLast20 = {drawdate: { $lt : drawRecord.drawdate }};
@@ -246,27 +299,13 @@ module.exports = {
                         if(err) throw err;
                         console.log("Draw " + drawRecord.drawid + " last20Result classify done >>>>>>");
 
-                        var tmpWinsArr = [];
-                        var fullNumArr = Array.apply(null, {length: 46}).map(Number.call, Number).slice(1);
+                        last20Stat.winsSelected.nons = _this.getLastNonsArr(last20Stat.nonsArr);
+                        last20Stat.winsSelected.wins = _this.getLastWinsArr(last20Stat.winsSelected.nons);
+                        last20Stat.winsSelected.selection = _this.getLastSelectionsArr(last20Stat.winsArr, last20Stat.winsSelected.wins);
 
-                        for(var i=0; i<last20Stat.winsArr.length; i++){
-                            for(var j=0; j<last20Stat.winsArr[i]["main"].length; j++){
-                                tmpWinsArr.push(last20Stat.winsArr[i]["main"][j]);
-                            }
-                        }
-
-                        last20Stat.nons = tmpWinsArr.filter(function (item, pos) {return tmpWinsArr.indexOf(item) == pos}).sort(function(a, b){return a-b});
-                        last20Stat.wins = fullNumArr.filter(function (item){ return (last20Stat.nons.indexOf(item) === -1)});
-
-                        //remove the non-wins number from nonsArr
-                        for(var i=0; i<last20Stat.nonsArr.length; i++){
-                            var tmpNonsArr = [];
-                            for(var j=0; j<last20Stat.nonsArr[i]["main"].length; j++){
-                                if(last20Stat.wins.indexOf(last20Stat.nonsArr[i]["main"][j]) >= 0) tmpNonsArr.push(last20Stat.nonsArr[i]["main"][j]);
-                            }
-                            last20Stat.selection.push(tmpNonsArr);
-                        }
-
+                        last20Stat.nonsSelected.nons = _this.getLastNonsArr(last20Stat.winsArr);
+                        last20Stat.nonsSelected.wins = _this.getLastWinsArr(last20Stat.nonsSelected.nons);
+                        last20Stat.nonsSelected.selection = _this.getLastSelectionsArr(last20Stat.nonsArr, last20Stat.nonsSelected.wins);
 
                         var queryNext = {drawdate: { $gt : drawRecord.drawdate }};
                         queryNext = Draws.findOne(queryNext);
@@ -276,11 +315,9 @@ module.exports = {
 
                                 if(nextResult!=null) {
                                     last20Stat.next = nextResult.main.concat(nextResult.supple).sort(function (a, b) {return a - b});
-                                    for(var i=0; i<last20Stat.next.length; i++){
-                                        if (last20Stat.wins.indexOf(last20Stat.next[i]) >= 0) last20Stat.count++;
-                                    }
-                                    last20Stat.total = last20Stat.wins.length;
-                                    last20Stat.rate = Math.round((last20Stat.count/last20Stat.total) * 10000) / 10000;
+
+                                    _this.getLastWinsStatic(last20Stat.next, last20Stat.winsSelected);
+                                    _this.getLastWinsStatic(last20Stat.next, last20Stat.nonsSelected);
 
                                     Statics.update({drawid: drawRecord.drawid}, { $set: { 'last20Stat': last20Stat}}, function(err){
                                         if(err) throw err;
@@ -288,8 +325,10 @@ module.exports = {
                                     });
 
                                 }else{
-                                    last20Stat.total = last20Stat.wins.length;
-                                    //last20Stat.winsArr = last20Stat.nonsArr = [];
+
+                                    last20Stat.winsSelected.total = last20Stat.winsSelected.wins.length;
+                                    last20Stat.nonsSelected.total = last20Stat.nonsSelected.wins.length;
+
                                     Statics.update({drawid: drawRecord.drawid}, { $set: { 'last20Stat': last20Stat}}, function(err){
                                         if(err) throw err;
                                         callbackAllStatic();

@@ -38,15 +38,25 @@ module.exports = function() {
             }
         },
         last20Stat: {
-            count: 0,
-            total: 0,
-            rate: 0,
             next: [],
-            wins: [],
-            nons: [],
+            winsSelected: {
+                count: 0,
+                total: 0,
+                rate: 0,
+                wins: [],
+                nons: [],
+                selection: []
+            },
+            nonsSelected: {
+                count: 0,
+                total: 0,
+                rate: 0,
+                wins: [],
+                nons: [],
+                selection: []
+            },
             winsArr: [],
-            nonsArr: [],
-            selection: []
+            nonsArr: []
         }
     });
     mongoose.model('Static', staticsSchema);
