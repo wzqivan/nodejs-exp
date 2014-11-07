@@ -5,6 +5,10 @@ var Schema = mongoose.Schema;
 // create an export function to encapsulate the model creation
 module.exports = function() {
     var staticsSchema = new Schema({
+        cycle: {
+            drawid: Number,
+            numOfDraws: Number
+        },
         drawid: Number,
         drawdate: Number,
         main: {

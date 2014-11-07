@@ -7,6 +7,8 @@ var Statics = mongoose.model('Static');
 
 module.exports = {
 
+    drawDateFrom : 20010421,
+
     queryConf : {
         draw: "drawid drawdate main supple",
         static: "-_id main supple last20Stat",
@@ -115,6 +117,7 @@ module.exports = {
                                 if (result == null) {
 
                                     Statics.create({
+                                        cycle: { drawid: 0, numOfDraws: 0 },
                                         drawid: row[0],
                                         drawdate: row[1],
                                         main: _this.buildStatics(mainArr),
@@ -158,7 +161,7 @@ module.exports = {
             }
 
             /* query last 20 result from current draw */
-            var queryAllDraws = Draws.find({});
+            var queryAllDraws = Draws.find({drawdate: { $gte: _this.drawDateFrom } });
             queryAllDraws.sort({drawdate: -1})
                 .select(_this.queryConf.draw)
                 .exec(function(err, allStaticResults){
@@ -172,22 +175,46 @@ module.exports = {
 
     },
 
-    getDrawsCycles : function(arr){
+    getDrawsCycles : function(allDrawsArr){
 
         var tmpArr = [],
             rsArr = [];
 
-        async.eachSeries(arr, function(item, callback){
+        async.each(allDrawsArr, function(item, callback){
 
-            for(var i=0; i<item["main"].length; i++){
-                tmpArr.push(item["main"][i]);
+            var numOfDraws = 0,
+                temAllDrawsArr = allDrawsArr,
+                lastResultsArr = temAllDrawsArr.filter(function(arrItem){ return arrItem["drawdate"] <= item["drawdate"] });
+
+            //console.log(currentDrawDate);
+            //console.log(allDrawsArr.length);
+            //console.log(lastResultsArr.length);
+
+            for(var i=0; i<lastResultsArr.length; i++){
+                numOfDraws = i;
+                for(var j=0; j<lastResultsArr[i]["main"].length; j++){
+                    tmpArr.push(lastResultsArr[i]["main"][j]);
+                }
+                var arr = tmpArr.filter(function (item, pos) {return tmpArr.indexOf(item) == pos}).sort(function(a, b){return a-b});
+                if(arr.length==45){
+                    tmpArr = [];
+
+                    var currentCycle = {
+                        drawid: lastResultsArr[i]["drawid"],
+                        numOfDraws: numOfDraws
+                    }
+
+                    console.log(numOfDraws);
+                    console.log(item["drawid"] +": "+ item["drawdate"] + ": " + lastResultsArr[i]["drawid"]);
+                    console.log(currentCycle);
+
+                    Statics.update({drawid: item["drawid"]}, { $set: { 'cycle': currentCycle} }, function(err){
+                        if(err) throw err;
+                        callback();
+                    });
+                    break;
+                }
             }
-            var arr = tmpArr.filter(function (item, pos) {return tmpArr.indexOf(item) == pos}).sort(function(a, b){return a-b});
-            if(arr.length==45){
-                rsArr.push(item["drawid"]);
-                tmpArr = [];
-            }
-            callback();
 
         }, function(err){
             if(err) throw err;
@@ -245,6 +272,11 @@ module.exports = {
             numOfLastRecords = nlr,
             querySelect = this.queryConf;
 
+        var fullNumFreqsArr = new Array(46);
+        for(var i=0; i<46; i++){
+            fullNumFreqsArr[i] = 0;
+        }
+
         async.each(arr, function(drawRecord, callbackAllStatic){
             console.log("####### drawRecord " + drawRecord.drawid + " beginning to process #######");
 
@@ -286,6 +318,9 @@ module.exports = {
                         async.each(record.main, function(item, callbackMain){
 
                             if(mainArr.indexOf(item) >= 0) isContainWins = true;
+
+                            fullNumFreqsArr[item] += 1;
+
                             callbackMain();
 
                         }, function(err){
@@ -298,6 +333,11 @@ module.exports = {
                     }, function(err){
                         if(err) throw err;
                         console.log("Draw " + drawRecord.drawid + " last20Result classify done >>>>>>");
+                        //console.log(fullNumFreqsArr);
+                        for(var i=0; i<46; i++){
+                            if( (fullNumFreqsArr[i]==0) || (fullNumFreqsArr[i] == 1) ) console.log(i);
+                            fullNumFreqsArr[i] = 0;
+                        }
 
                         last20Stat.winsSelected.nons = _this.getLastNonsArr(last20Stat.nonsArr);
                         last20Stat.winsSelected.wins = _this.getLastWinsArr(last20Stat.winsSelected.nons);
@@ -343,6 +383,7 @@ module.exports = {
         }, function(err){
             if(err) throw err;
             console.log('######## allStaticResults have been done #########');
+            //console.log(fullNumFreqsArr);
         });
     }
 };
