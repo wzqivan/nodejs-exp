@@ -15,8 +15,6 @@ module.exports = {
         number: "num main supple"
     },
 
-    cycles : [],
-
     buildStatics: function(arr){
 
         var result = {
@@ -167,7 +165,7 @@ module.exports = {
                 .exec(function(err, allStaticResults){
                     if(err) throw err;
 
-                    _this.cycles = _this.getDrawsCycles(allStaticResults);
+                    _this.getDrawsCycles(allStaticResults);
                     _this.getLastResults(allStaticResults, 20);
                 });
 
@@ -272,10 +270,7 @@ module.exports = {
             numOfLastRecords = nlr,
             querySelect = this.queryConf;
 
-        var fullNumFreqsArr = new Array(46);
-        for(var i=0; i<46; i++){
-            fullNumFreqsArr[i] = 0;
-        }
+        var fullNumFreqsArr = Array.apply(null, new Array(46)).map(Number.prototype.valueOf,0);
 
         async.each(arr, function(drawRecord, callbackAllStatic){
             console.log("####### drawRecord " + drawRecord.drawid + " beginning to process #######");
@@ -333,7 +328,7 @@ module.exports = {
                     }, function(err){
                         if(err) throw err;
                         console.log("Draw " + drawRecord.drawid + " last20Result classify done >>>>>>");
-                        //console.log(fullNumFreqsArr);
+                        console.log(fullNumFreqsArr);
                         for(var i=0; i<46; i++){
                             if( (fullNumFreqsArr[i]==0) || (fullNumFreqsArr[i] == 1) ) console.log(i);
                             fullNumFreqsArr[i] = 0;

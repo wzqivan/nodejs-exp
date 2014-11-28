@@ -53,8 +53,6 @@ router.get('/', function(req, res) {
         // console.log(_drawDateTo);
         // console.log(typeof _drawDateTo);
 
-    console.log(tools.cycles);
-
     var queryAllDraws = Draws.find({});
 
         queryAllDraws.sort({drawdate: -1})
@@ -159,7 +157,6 @@ router.get('/id/:drawid', function(req, res) {
 
                         // remove the winsArr and nonsArr for result display
                         console.log(statResult.last20Stat.winsArr.length + "/" + statResult.last20Stat.nonsArr.length);
-                        console.log(tools.cycles);
                         statResult.last20Stat.winsArr = statResult.last20Stat.nonsArr = [];
                         result.push(statResult);
                         res.send(result);
